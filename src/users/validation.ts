@@ -1,10 +1,11 @@
 import { validate, version } from 'uuid'
+import { errorValidationResponse, okValidationResponse } from '../types'
 
 export function isUuidV4(id: string): boolean {
   return validate(id) && version(id) === 4
 }
 
-export function validateUserBody(body: unknown): { ok: true; value: { username: string; age: number; hobbies: string[] } } | { ok: false; message: string } {
+export function validateUserBody(body: unknown): okValidationResponse | errorValidationResponse {
   if (!body || typeof body !== 'object') {
     return { ok: false, message: 'Body must be an object' }
   }

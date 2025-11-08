@@ -6,10 +6,6 @@ export async function readJson<T = unknown>(req: IncomingMessage): Promise<T> {
     req
       .on('data', (chunk) => {
         data += chunk
-        if (data.length > 1_000_000) {
-          reject(new Error('Payload too large'))
-          req.destroy()
-        }
       })
       .on('end', () => {
         if (!data) {
