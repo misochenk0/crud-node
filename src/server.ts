@@ -17,7 +17,7 @@ function isApiUsersPath(pathname?: string) {
   return pathname === default_path || pathname?.startsWith(`${default_path}/`)
 }
 
-const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+export const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   try {
     const url: URL = new URL(req.url || '/', `http://${req.headers.host}`)
 
