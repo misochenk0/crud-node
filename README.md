@@ -15,4 +15,4 @@ JEST Tests:
 Claster mode:
 1. run `npm run start:multi`
 2. same as dev server
-3. you can test using bash script `bash ./scripts/highload.sh`
+3. you can test using bash script `bash ./scripts/highload.sh` (PORT SHOULD BE 4000) (Tested at macOs)
