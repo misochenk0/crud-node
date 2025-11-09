@@ -2,13 +2,13 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "module": "UMD",
-    "moduleResolution": "Node",
     "target": "ES2022",
+    "moduleResolution": "node",
     "lib": ["ES2022"],
     "types": ["node"],
-    "noEmit": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "noEmit": true
   },
   "include": ["src/server.ts", "src/utils/**/*.ts", "src/users/**/*.ts"]
 }
