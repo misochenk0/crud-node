@@ -68,7 +68,9 @@ if (MODE === modes.multi && cluster.isPrimary) {
     const targets: number[] = Array.from({ length: availableParallelism() - 1 }, (_: undefined, i: number): number => BASE_PORT + i + 1)
     let index: number = 0
 
-    for (const port of targets) cluster.fork({ ...process.env, PORT: String(port) })
+    for (const port of targets) {
+        cluster.fork({ ...process.env, PORT: String(port) })
+    }
 
     cluster.on('message', (worker, msg: CRUDRequest): void => {
         if (!msg || !msg.type || !msg.requestId) return
@@ -94,7 +96,7 @@ if (MODE === modes.multi && cluster.isPrimary) {
             res.writeHead(502)
             res.end(`Bad Gateway: ${err.message}`)
         })
-
+        console.log(`Proxying request to port ${target}`)
         req.pipe(proxy)
     })
 
