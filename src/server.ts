@@ -1,86 +1,84 @@
-import { createServer, IncomingMessage, ServerResponse, request } from 'http'
+import {createServer, IncomingMessage, request, ServerResponse} from 'http'
 import cluster from 'node:cluster'
-import { availableParallelism } from 'node:os'
-import { v4 } from 'uuid'
+import {availableParallelism} from 'node:os'
+import {v4} from 'uuid'
 import 'dotenv/config'
-import { readJson, sendError, sendJson } from './utils/json'
-import { isUuidV4, validateUserBody } from './users/validation'
-import { errorValidationResponse, okValidationResponse, User, UserInput } from './types/index'
-import { Server } from "node:net"
+import {readJson, sendError, sendJson} from './utils/json'
+import {isUuidV4, validateUserBody} from './users/validation'
+import {
+    CRUDRequest,
+    CRUDResponse,
+    errorValidationResponse,
+    messages,
+    modes,
+    okValidationResponse,
+    User
+} from './types/index'
+import {Server} from "node:net"
 
-const BASE_PORT = Number(process.env.PORT) || 4000
-const MODE = process.env.MODE || 'single'
-const PORT = Number(process.env.PORT) || BASE_PORT
-const default_path = '/api/users'
+const BASE_PORT: number = Number(process.env.PORT) || 4000
+const MODE: modes = process.env.MODE as modes || modes.single
+const PORT: number = Number(process.env.PORT) || BASE_PORT
+const default_path: string = '/api/users'
 
-let users = new Map<string, User>()
+let users: Map<string, User> = new Map<string, User>()
 
-interface CRUDRequest {
-    type: 'list' | 'get' | 'create' | 'update' | 'delete'
-    id?: string
-    value?: UserInput
-    requestId: string
+const getResponse = (msg: CRUDRequest): CRUDResponse => {
+    let res: CRUDResponse = { requestId: msg.requestId, status: 500 }
+
+    try {
+        switch (msg.type) {
+            case messages.list:
+                res = { ...res, status: 200, data: Array.from(users.values()) }
+                break
+            case messages.get:
+                if (!msg.id) break
+                const user: User = users.get(msg.id)
+                res = { ...res, status: user ? 200 : 404, data: user }
+                break
+            case messages.create:
+                if (!msg.value) break
+                const newUser: User = { id: v4(), ...msg.value }
+                users.set(newUser.id, newUser)
+                res = { ...res, status: 201, data: newUser }
+                break
+            case messages.update:
+                if (!msg.id || !msg.value) break
+                if (!users.has(msg.id)) {
+                    res = { ...res, status: 404 }
+                    break
+                }
+                const updated: User = { id: msg.id, ...msg.value }
+                users.set(msg.id, updated)
+                res = { ...res, status: 200, data: updated }
+                break
+            case messages.delete:
+                if (!msg.id) break
+                const ok = users.delete(msg.id)
+                res = { ...res, status: ok ? 204 : 404 }
+                break
+        }
+    } catch (err) {
+        res = { ...res, status: 500, data: (err as Error).message }
+    }
+    return res
 }
 
-interface CRUDResponse {
-    status: number
-    data?: any
-    requestId: string
-}
-
-if (MODE === 'multi' && cluster.isPrimary) {
-    const count = Math.max(1, availableParallelism() - 1)
-    const targets = Array.from({ length: count }, (_, i) => BASE_PORT + i + 1)
-    let index = 0
+if (MODE === modes.multi && cluster.isPrimary) {
+    const targets: number[] = Array.from({ length: availableParallelism() - 1 }, (_: undefined, i: number): number => BASE_PORT + i + 1)
+    let index: number = 0
 
     for (const port of targets) cluster.fork({ ...process.env, PORT: String(port) })
 
-    cluster.on('message', (worker, msg: CRUDRequest) => {
+    cluster.on('message', (worker, msg: CRUDRequest): void => {
         if (!msg || !msg.type || !msg.requestId) return
-
-        let res: CRUDResponse = { requestId: msg.requestId, status: 500 }
-
-        try {
-            switch (msg.type) {
-                case 'list':
-                    res = { ...res, status: 200, data: Array.from(users.values()) }
-                    break
-                case 'get':
-                    if (!msg.id) break
-                    const user = users.get(msg.id)
-                    res = { ...res, status: user ? 200 : 404, data: user }
-                    break
-                case 'create':
-                    if (!msg.value) break
-                    const newUser: User = { id: v4(), ...msg.value }
-                    users.set(newUser.id, newUser)
-                    res = { ...res, status: 201, data: newUser }
-                    break
-                case 'update':
-                    if (!msg.id || !msg.value) break
-                    if (!users.has(msg.id)) {
-                        res = { ...res, status: 404 }
-                        break
-                    }
-                    const updated: User = { id: msg.id, ...msg.value }
-                    users.set(msg.id, updated)
-                    res = { ...res, status: 200, data: updated }
-                    break
-                case 'delete':
-                    if (!msg.id) break
-                    const ok = users.delete(msg.id)
-                    res = { ...res, status: ok ? 204 : 404 }
-                    break
-            }
-        } catch (err) {
-            res = { ...res, status: 500, data: (err as Error).message }
-        }
-
+        const res: CRUDResponse = getResponse(msg)
         worker.send(res)
     })
 
-    const balancer = createServer((req, res) => {
-        const target = targets[index]
+    const balancer: Server = createServer((req, res): void => {
+        const target: number = targets[index]
+        // Choosing first available port
         index = (index + 1) % targets.length
 
         const proxy = request(
@@ -104,56 +102,18 @@ if (MODE === 'multi' && cluster.isPrimary) {
 }
 
 async function handleCrud(msg: CRUDRequest): Promise<CRUDResponse> {
-    if (MODE === 'single' || !cluster.isWorker) {
-        let res: CRUDResponse = { requestId: msg.requestId, status: 500 }
-        try {
-            switch (msg.type) {
-                case 'list':
-                    res = { ...res, status: 200, data: Array.from(users.values()) }
-                    break
-                case 'get':
-                    if (!msg.id) break
-                    const user = users.get(msg.id)
-                    res = { ...res, status: user ? 200 : 404, data: user }
-                    break
-                case 'create':
-                    if (!msg.value) break
-                    const newUser: User = { id: v4(), ...msg.value }
-                    users.set(newUser.id, newUser)
-                    res = { ...res, status: 201, data: newUser }
-                    break
-                case 'update':
-                    if (!msg.id || !msg.value) break
-                    if (!users.has(msg.id)) {
-                        res = { ...res, status: 404 }
-                        break
-                    }
-                    const updated: User = { id: msg.id, ...msg.value }
-                    users.set(msg.id, updated)
-                    res = { ...res, status: 200, data: updated }
-                    break
-                case 'delete':
-                    if (!msg.id) break
-                    const ok = users.delete(msg.id)
-                    res = { ...res, status: ok ? 204 : 404 }
-                    break
+    if (MODE === modes.single || !cluster.isWorker) return getResponse(msg)
+
+    return new Promise((resolve): void => {
+        process.send!(msg)
+        const listener = (resp: CRUDResponse): void => {
+            if (resp.requestId === msg.requestId) {
+                process.removeListener('message', listener)
+                resolve(resp)
             }
-        } catch (err) {
-            res = { ...res, status: 500, data: (err as Error).message }
         }
-        return res
-    } else {
-        return new Promise((resolve) => {
-            process.send!(msg)
-            const listener = (resp: CRUDResponse) => {
-                if (resp.requestId === msg.requestId) {
-                    process.removeListener('message', listener)
-                    resolve(resp)
-                }
-            }
-            process.on('message', listener)
-        })
-    }
+        process.on('message', listener)
+    })
 }
 
 let server: Server
@@ -173,36 +133,36 @@ export async function createServerInstance(port: number = PORT) {
             if (url.pathname === default_path) {
                 switch (req.method) {
                     case 'GET': {
-                        const resp = await handleCrud({ type: 'list', requestId })
+                        const resp: CRUDResponse = await handleCrud({ type: messages.list, requestId })
                         return sendJson(res, resp.status, resp.data)
                     }
                     case 'POST': {
                         const body = await readJson(req)
                         const parsed: okValidationResponse | errorValidationResponse = validateUserBody(body)
                         if (!parsed.ok) return sendError(res, 400, (parsed as errorValidationResponse).message)
-                        const resp = await handleCrud({ type: 'create', value: parsed.value, requestId })
+                        const resp: CRUDResponse = await handleCrud({ type: messages.create, value: parsed.value, requestId })
                         return sendJson(res, resp.status, resp.data)
                     }
                 }
             }
 
-            const id = url.pathname.split('/').pop()!
+            const id: string = url.pathname.split('/').pop()!
             if (!isUuidV4(id)) return sendError(res, 400, 'Invalid user id (must be UUID v4)')
 
             switch (req.method) {
                 case 'GET': {
-                    const resp = await handleCrud({ type: 'get', id, requestId })
+                    const resp: CRUDResponse = await handleCrud({ type: messages.get, id, requestId })
                     return resp.data ? sendJson(res, resp.status, resp.data) : sendError(res, resp.status, 'User not found')
                 }
                 case 'PUT': {
                     const body = await readJson(req)
-                    const parsed = validateUserBody(body)
+                    const parsed: okValidationResponse | errorValidationResponse = validateUserBody(body)
                     if (!parsed.ok) return sendError(res, 400, (parsed as errorValidationResponse).message)
-                    const resp = await handleCrud({ type: 'update', id, value: parsed.value, requestId })
+                    const resp: CRUDResponse = await handleCrud({ type: messages.update, id, value: parsed.value, requestId })
                     return resp.data ? sendJson(res, resp.status, resp.data) : sendError(res, resp.status, 'User not found')
                 }
                 case 'DELETE': {
-                    const resp = await handleCrud({ type: 'delete', id, requestId })
+                    const resp: CRUDResponse = await handleCrud({ type: messages.delete, id, requestId })
                     return resp.status === 204 ? sendJson(res, 204) : sendError(res, resp.status, 'User not found')
                 }
             }
@@ -211,9 +171,9 @@ export async function createServerInstance(port: number = PORT) {
         }
     })
 
-    await new Promise<void>((resolve) => server.listen(port, resolve))
+    await new Promise<void>((resolve): Server => server.listen(port, resolve))
 }
 
-if (MODE === 'single' || cluster.isWorker) createServerInstance(PORT)
+if (MODE === modes.single || cluster.isWorker) createServerInstance(PORT)
 
 export { server }
