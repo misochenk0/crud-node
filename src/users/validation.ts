@@ -1,5 +1,5 @@
 import { validate, version } from 'uuid'
-import { errorValidationResponse, okValidationResponse } from '../types'
+import { errorValidationResponse, okValidationResponse } from '../types/index'
 
 export function isUuidV4(id: string): boolean {
   return validate(id) && version(id) === 4

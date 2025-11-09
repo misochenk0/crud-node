@@ -4,7 +4,7 @@ import 'dotenv/config'
 import { readJson, sendError, sendJson } from './utils/json'
 import { createUser, deleteUser, getUser, listUsers, updateUser } from './users/store'
 import { isUuidV4, validateUserBody } from './users/validation'
-import {errorValidationResponse, okValidationResponse} from "./types";
+import {errorValidationResponse, okValidationResponse} from './types/index'
 
 const PORT = Number(process.env.PORT) || 3000
 const default_path = '/api/users'
