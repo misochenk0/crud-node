@@ -15,8 +15,8 @@
   "main": "index.js",
   "scripts": {
     "test": "jest",
-    "start:dev": "MODE=single ts-node-dev --respawn --transpile-only --project tsconfig.server.json src/server.ts",
-    "start:multi": "MODE=multi ts-node-dev --respawn --transpile-only --project tsconfig.server.json src/server.ts",
+    "start:dev": "cross-env MODE=single ts-node-dev --respawn --transpile-only --project tsconfig.server.json src/server.ts",
+    "start:multi": "cross-env MODE=multi ts-node-dev --respawn --transpile-only --project tsconfig.server.json src/server.ts",
     "start:prod": "tsc -p tsconfig.server.prod.json && node dist/server.js"
   },
   "dependencies": {
