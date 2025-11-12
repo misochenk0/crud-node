@@ -18,5 +18,6 @@
     "src/utils/**/*.ts",
     "src/users/**/*.ts",
     "src/types/**/*.ts"
-  ]
+  ],
+  "exclude": ["**/*.test.ts"]
 }

@@ -17,7 +17,7 @@
     "test": "jest",
     "start:dev": "cross-env MODE=single ts-node-dev --respawn --transpile-only --project tsconfig.server.json src/server.ts",
     "start:multi": "cross-env MODE=multi ts-node-dev --respawn --transpile-only --project tsconfig.server.json src/server.ts",
-    "start:prod": "tsc -p tsconfig.server.prod.json && node dist/server.js"
+    "start:prod": "cross-env tsc -p tsconfig.server.prod.json && node dist/server.js"
   },
   "dependencies": {
     "cross-env": "^10.1.0",
